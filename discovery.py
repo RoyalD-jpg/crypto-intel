@@ -46,8 +46,22 @@ def pair_to_coindata(pair: dict) -> CoinData | None:
             return None
 
         liq = (pair.get("liquidity") or {}).get("usd") or 0
-        vol_24h = (pair.get("volume") or {}).get("h24") or 0
         pc = pair.get("priceChange") or {}
+
+        # Multi-window volume (DexScreener provides h1, h6, h24)
+        vol = pair.get("volume") or {}
+        vol_24h = vol.get("h24") or 0
+        vol_6h = vol.get("h6") or 0
+        vol_1h = vol.get("h1") or 0
+
+        # Build a real volume baseline. If the last hour annualized to 24h is
+        # much higher than the actual 24h, volume is accelerating right now.
+        # Use the 6h window scaled to 24h as a "recent normal" baseline —
+        # far better than the old volume * 0.7 guess.
+        if vol_6h > 0:
+            baseline_24h = vol_6h * 4  # 6h * 4 = 24h-equivalent recent pace
+        else:
+            baseline_24h = max(vol_24h, 1)
 
         created_ms = pair.get("pairCreatedAt")
         if created_ms:
@@ -55,9 +69,22 @@ def pair_to_coindata(pair: dict) -> CoinData | None:
         else:
             age_days = 30
 
-        txns_24h = (pair.get("txns") or {}).get("h24") or {}
-        buys = txns_24h.get("buys") or 0
-        sells = txns_24h.get("sells") or 0
+        # Multi-window transactions for real buy/sell pressure
+        txns = pair.get("txns") or {}
+        txns_24h = txns.get("h24") or {}
+        txns_1h = txns.get("h1") or {}
+        buys_24h = txns_24h.get("buys") or 0
+        sells_24h = txns_24h.get("sells") or 0
+        buys_1h = txns_1h.get("buys") or 0
+        sells_1h = txns_1h.get("sells") or 0
+
+        # Buy pressure ratio (0-1): fraction of recent txns that are buys
+        total_1h = buys_1h + sells_1h
+        if total_1h > 0:
+            buy_pressure_1h = buys_1h / total_1h
+        else:
+            total_24h = buys_24h + sells_24h
+            buy_pressure_1h = (buys_24h / total_24h) if total_24h > 0 else 0.5
 
         chain = (pair.get("chainId") or "").lower()
 
@@ -69,36 +96,52 @@ def pair_to_coindata(pair: dict) -> CoinData | None:
         has_telegram = any("telegram" in str(s).lower() or "t.me" in str(s).lower()
                            for s in socials)
 
-        return CoinData(
+        # Use buy-pressure as a sentiment proxy (-1 to +1): more buys = positive
+        sentiment = (buy_pressure_1h - 0.5) * 2
+
+        cd = CoinData(
             symbol=(base.get("symbol") or "?").upper(),
             name=base.get("name") or base.get("symbol") or "Unknown",
             contract_address=base.get("address") or "",
             chain=chain,
             price_usd=price,
-            market_cap_usd=pair.get("fdv") or pair.get("marketCap") or 0,
+            market_cap_usd=pair.get("marketCap") or pair.get("fdv") or 0,
             price_change_1h_pct=pc.get("h1") or 0,
             price_change_24h_pct=pc.get("h24") or 0,
             price_change_7d_pct=0,
             volume_24h_usd=vol_24h,
-            avg_volume_7d_usd=max(vol_24h * 0.7, 1),
+            avg_volume_7d_usd=baseline_24h,  # real recent-pace baseline now
             liquidity_usd=liq,
             liquidity_change_24h_pct=0,
-            holder_count=max(buys + sells, 50),
-            new_holders_24h=buys,
-            top_10_holder_pct=20.0,   # placeholder until on-chain wired
-            top_wallet_pct=5.0,        # placeholder until on-chain wired
+            holder_count=max(buys_24h + sells_24h, 50),
+            new_holders_24h=buys_24h,
+            top_10_holder_pct=20.0,   # placeholder until on-chain (Helius) fills it
+            top_wallet_pct=5.0,        # placeholder until on-chain (Helius) fills it
             token_age_days=age_days,
             contract_verified=True,
-            mentions_24h=max(buys, 1),
-            mentions_prev_24h=max(buys // 2, 1),
-            sentiment_score=0.0,
+            mentions_24h=max(buys_24h, 1),
+            mentions_prev_24h=max(buys_24h // 2, 1),
+            sentiment_score=sentiment,
             has_twitter=has_twitter or bool(websites),
             has_telegram=has_telegram,
             bot_mention_ratio=0.1,
-            liquidity_locked=True,     # placeholder
+            liquidity_locked=True,     # placeholder until lock-check wired
             anonymous_team=True,
             single_lp_only=False,
         )
+
+        # Attach extra DexScreener fields as attributes for the UI to display.
+        # (Not part of the scoring contract, just richer display data.)
+        cd.vol_1h = vol_1h
+        cd.vol_6h = vol_6h
+        cd.buys_24h = buys_24h
+        cd.sells_24h = sells_24h
+        cd.buys_1h = buys_1h
+        cd.sells_1h = sells_1h
+        cd.buy_pressure_1h = buy_pressure_1h
+        cd.price_change_6h_pct = pc.get("h6") or 0
+        cd.dex_url = pair.get("url") or ""
+        return cd
     except Exception:
         return None
 

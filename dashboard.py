@@ -51,80 +51,137 @@ st.set_page_config(
 )
 
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
     #MainMenu, footer, header {visibility: hidden;}
-    .block-container {padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1400px;}
+
+    /* App background: deep slate with a subtle radial glow */
+    .stApp {
+        background:
+            radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.08), transparent 60%),
+            radial-gradient(1000px 500px at 100% 0%, rgba(168,85,247,0.06), transparent 55%),
+            #0a0b0f;
+    }
+    .block-container {padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1320px;}
+
+    /* Typography */
+    html, body, [class*="css"] {font-family: 'Space Grotesk', system-ui, sans-serif;}
+    h1, h2, h3 {font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em;}
+    .mono {font-family: 'JetBrains Mono', monospace;}
 
     /* Cards */
     .coin-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 10px;
-        transition: border-color 0.15s;
+        position: relative;
+        background: linear-gradient(160deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.012) 100%);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 14px;
+        padding: 15px 18px;
+        margin-bottom: 9px;
+        transition: all 0.18s ease;
+        overflow: hidden;
     }
-    .coin-card:hover {border-color: rgba(255,255,255,0.18);}
-    .coin-rank {opacity: 0.4; font-size: 14px; margin-right: 8px; font-weight: 500;}
+    .coin-card::before {
+        content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+        background: var(--accent, transparent);
+        opacity: 0.85;
+    }
+    .coin-card:hover {
+        border-color: rgba(255,255,255,0.16);
+        transform: translateY(-1px);
+        background: linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+    }
+    .coin-rank {
+        font-family: 'JetBrains Mono', monospace;
+        opacity: 0.35; font-size: 13px; margin-right: 9px; font-weight: 500;
+    }
 
     /* Badges */
     .badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        text-transform: uppercase;
-        margin-right: 6px;
+        display: inline-block; padding: 3px 9px; border-radius: 7px;
+        font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px;
+        text-transform: uppercase; margin-right: 5px;
+        font-family: 'JetBrains Mono', monospace;
     }
-    .badge-green {background: rgba(34,197,94,0.15); color: #4ade80;}
-    .badge-yellow {background: rgba(234,179,8,0.15); color: #facc15;}
-    .badge-blue {background: rgba(59,130,246,0.15); color: #60a5fa;}
-    .badge-red {background: rgba(239,68,68,0.15); color: #f87171;}
-    .badge-gray {background: rgba(148,163,184,0.15); color: #94a3b8;}
-    .badge-purple {background: rgba(168,85,247,0.15); color: #c084fc;}
+    .badge-green {background: rgba(34,197,94,0.14); color: #4ade80; border: 1px solid rgba(34,197,94,0.25);}
+    .badge-yellow {background: rgba(234,179,8,0.14); color: #facc15; border: 1px solid rgba(234,179,8,0.25);}
+    .badge-blue {background: rgba(59,130,246,0.14); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25);}
+    .badge-red {background: rgba(239,68,68,0.14); color: #f87171; border: 1px solid rgba(239,68,68,0.25);}
+    .badge-gray {background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2);}
+    .badge-purple {background: rgba(168,85,247,0.14); color: #c084fc; border: 1px solid rgba(168,85,247,0.25);}
 
-    .score-display {font-size: 30px; font-weight: 700; line-height: 1;}
-    .score-display-dim {color: #94a3b8;}
+    .score-display {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 28px; font-weight: 700; line-height: 1;
+    }
+    .score-display-dim {color: #64748b;}
     .score-label {
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        opacity: 0.55;
-        margin-bottom: 3px;
+        font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px;
+        opacity: 0.5; margin-bottom: 3px; font-weight: 500;
     }
 
     .meta-row {
-        display: flex; gap: 14px; font-size: 12px; opacity: 0.75;
-        margin-top: 6px; flex-wrap: wrap;
+        display: flex; gap: 13px; font-size: 12px; opacity: 0.72;
+        margin-top: 7px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace;
     }
     .price-up {color: #4ade80;}
     .price-down {color: #f87171;}
 
     .chain-pill {
-        display: inline-block; padding: 2px 8px; border-radius: 4px;
-        font-size: 10px; font-weight: 500; text-transform: uppercase;
-        background: rgba(153,69,255,0.15); color: #c084fc; margin-left: 6px;
+        display: inline-block; padding: 2px 8px; border-radius: 5px;
+        font-size: 9.5px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.4px;
+        background: rgba(153,69,255,0.16); color: #c084fc; margin-left: 6px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Buy/sell pressure bar */
+    .pressure-bar {
+        display: flex; height: 5px; border-radius: 3px; overflow: hidden;
+        margin-top: 9px; background: rgba(255,255,255,0.05);
+    }
+    .pressure-buy {background: linear-gradient(90deg, #22c55e, #4ade80);}
+    .pressure-sell {background: linear-gradient(90deg, #f87171, #ef4444);}
+    .pressure-labels {
+        display: flex; justify-content: space-between; font-size: 10px;
+        margin-top: 3px; font-family: 'JetBrains Mono', monospace; opacity: 0.65;
     }
 
     .status-dot {
         display: inline-block; width: 8px; height: 8px; border-radius: 50%;
         margin-right: 6px; vertical-align: middle;
     }
-    .status-on {background: #4ade80; box-shadow: 0 0 6px #4ade80;}
-    .status-off {background: #94a3b8;}
+    .status-on {background: #4ade80; box-shadow: 0 0 7px #4ade80;}
+    .status-off {background: #64748b;}
 
-    /* Tighten Streamlit's default padding */
-    [data-testid="stMetricValue"] {font-size: 22px; font-weight: 600;}
+    /* Metric tiles */
+    [data-testid="stMetricValue"] {
+        font-size: 21px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+    }
+    [data-testid="stMetricLabel"] {opacity: 0.6;}
     [data-testid="stHorizontalBlock"] {gap: 0.5rem;}
 
-    /* Quieter tab styling */
-    .stTabs [data-baseweb="tab-list"] {gap: 4px;}
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.07);}
     .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 8px 8px 0 0;
-        padding: 8px 16px;
+        background: transparent; border-radius: 8px 8px 0 0;
+        padding: 8px 18px; font-weight: 500;
+    }
+    .stTabs [aria-selected="true"] {
+        background: rgba(255,255,255,0.04);
+    }
+
+    /* Buttons: tighter, more refined */
+    .stButton button {
+        border-radius: 8px; font-weight: 500; font-size: 13px;
+        border: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.15s;
+    }
+    .stButton button:hover {border-color: rgba(255,255,255,0.25);}
+
+    /* Section headers */
+    .section-head {
+        font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+        margin: 4px 0 2px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -219,37 +276,70 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
 
     safe_name = (coin.name or "")[:40]
 
+    # Accent color from opportunity tier
+    opp_score = opp["score"]
+    if opp_score is None:
+        accent = "#ef4444"
+    elif opp_score >= 80:
+        accent = "#22c55e"
+    elif opp_score >= 60:
+        accent = "#eab308"
+    elif opp_score >= 40:
+        accent = "#3b82f6"
+    else:
+        accent = "#64748b"
+
+    # Buy/sell pressure bar (from real DexScreener txn data if present)
+    buy_pressure = getattr(coin, "buy_pressure_1h", None)
+    buys = getattr(coin, "buys_1h", 0)
+    sells = getattr(coin, "sells_1h", 0)
+    pressure_html = ""
+    if buy_pressure is not None and (buys + sells) > 0:
+        buy_pct = buy_pressure * 100
+        sell_pct = 100 - buy_pct
+        pressure_html = f"""
+          <div class="pressure-bar">
+            <div class="pressure-buy" style="width:{buy_pct:.0f}%;"></div>
+            <div class="pressure-sell" style="width:{sell_pct:.0f}%;"></div>
+          </div>
+          <div class="pressure-labels">
+            <span style="color:#4ade80;">▲ {buys} buys</span>
+            <span>{buy_pct:.0f}% buy pressure (1h)</span>
+            <span style="color:#f87171;">{sells} sells ▼</span>
+          </div>"""
+
     st.markdown(f"""
-    <div class="coin-card">
+    <div class="coin-card" style="--accent: {accent};">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="font-size:18px; font-weight:600;">{rank_html}{watch_marker}{coin.symbol}</span>
-            <span style="opacity:0.6; font-size:14px;">{safe_name}</span>
+            <span style="font-size:17px; font-weight:600;">{rank_html}{watch_marker}{coin.symbol}</span>
+            <span style="opacity:0.55; font-size:13px;">{safe_name}</span>
             <span class="chain-pill">{coin.chain}</span>
           </div>
           <div class="meta-row">
-            <span><strong>{fmt_price(coin.price_usd)}</strong></span>
+            <span style="color:#e2e8f0;"><strong>{fmt_price(coin.price_usd)}</strong></span>
             <span class="{pc_class}">{fmt_pct(pc_24h)} 24h</span>
             <span>MC {fmt_money(coin.market_cap_usd)}</span>
             <span>Vol {fmt_money(coin.volume_24h_usd)}</span>
             <span>Liq {fmt_money(coin.liquidity_usd)}</span>
-            <span>{coin.token_age_days:.0f}d old</span>
+            <span>{coin.token_age_days:.0f}d</span>
           </div>
-          <div style="margin-top:10px;">
+          <div style="margin-top:9px;">
             {tier_badge(opp["score"])}
             {risk_badge(risk["score"])}
           </div>
         </div>
-        <div style="text-align:right; min-width:80px;">
+        <div style="text-align:right; min-width:72px;">
           <div class="score-label">Momentum</div>
           <div class="score-display">{mom["total"]:.0f}</div>
         </div>
-        <div style="text-align:right; min-width:80px;">
+        <div style="text-align:right; min-width:72px;">
           <div class="score-label">Opportunity</div>
           <div class="score-display {opp_class}">{opp_display}</div>
         </div>
       </div>
+      {pressure_html}
     </div>
     """, unsafe_allow_html=True)
 
@@ -364,6 +454,45 @@ def render_coin_detail(coin, analysis, back_key: str = "detail_back"):
         m2.metric("Liquidity", fmt_money(coin.liquidity_usd))
         m3.metric("Volume 24h", fmt_money(coin.volume_24h_usd))
         m4.metric("Age", f"{coin.token_age_days:.0f}d")
+
+        # Buy/sell pressure (real DexScreener data)
+        buys_1h = getattr(coin, "buys_1h", 0)
+        sells_1h = getattr(coin, "sells_1h", 0)
+        buys_24h = getattr(coin, "buys_24h", 0)
+        sells_24h = getattr(coin, "sells_24h", 0)
+        if (buys_1h + sells_1h) > 0 or (buys_24h + sells_24h) > 0:
+            st.markdown("### Buy / sell pressure")
+            bp1, bp2 = st.columns(2)
+            with bp1:
+                total_1h = buys_1h + sells_1h
+                buy_pct_1h = (buys_1h / total_1h * 100) if total_1h else 0
+                st.markdown(f"**Last 1 hour** — {buy_pct_1h:.0f}% buys")
+                st.markdown(f"""
+                <div class="pressure-bar" style="height:8px;">
+                  <div class="pressure-buy" style="width:{buy_pct_1h:.0f}%;"></div>
+                  <div class="pressure-sell" style="width:{100-buy_pct_1h:.0f}%;"></div>
+                </div>
+                <div class="pressure-labels">
+                  <span style="color:#4ade80;">▲ {buys_1h} buys</span>
+                  <span style="color:#f87171;">{sells_1h} sells ▼</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with bp2:
+                total_24h = buys_24h + sells_24h
+                buy_pct_24h = (buys_24h / total_24h * 100) if total_24h else 0
+                st.markdown(f"**Last 24 hours** — {buy_pct_24h:.0f}% buys")
+                st.markdown(f"""
+                <div class="pressure-bar" style="height:8px;">
+                  <div class="pressure-buy" style="width:{buy_pct_24h:.0f}%;"></div>
+                  <div class="pressure-sell" style="width:{100-buy_pct_24h:.0f}%;"></div>
+                </div>
+                <div class="pressure-labels">
+                  <span style="color:#4ade80;">▲ {buys_24h} buys</span>
+                  <span style="color:#f87171;">{sells_24h} sells ▼</span>
+                </div>
+                """, unsafe_allow_html=True)
+            st.caption("More buys than sells suggests accumulation; the reverse suggests distribution. "
+                      "Not a guarantee of direction — large players can mask intent.")
 
         st.markdown("### Momentum breakdown")
         st.caption(f"Components that built the {mom['total']:.0f} score. Each is 0–100.")
