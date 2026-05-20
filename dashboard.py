@@ -234,6 +234,39 @@ def fmt_pct(p):
     return f"{p:+.2f}%"
 
 
+def momentum_1h(coin):
+    """A short-window momentum score (0-100) focused on the LAST HOUR.
+
+    Built entirely from 1h signals so it captures fresh swings that the
+    blended 24h momentum score smooths over. Three parts:
+      - 1h price change (most weight)
+      - 1h buy pressure (are buys dominating right now?)
+      - 1h volume vs the 6h average pace (is activity spiking?)
+    """
+    # 1h price component: +/-15% maps across the range
+    pc_1h = getattr(coin, "price_change_1h_pct", 0) or 0
+    price_part = max(0, min(100, 50 + pc_1h * 3.3))
+
+    # Buy pressure component: 0.5 (balanced) = 50, 1.0 (all buys) = 100
+    bp = getattr(coin, "buy_pressure_1h", 0.5)
+    pressure_part = max(0, min(100, bp * 100))
+
+    # Volume spike component: 1h volume vs the 6h hourly average
+    vol_1h = getattr(coin, "vol_1h", 0) or 0
+    vol_6h = getattr(coin, "vol_6h", 0) or 0
+    if vol_6h > 0:
+        hourly_avg = vol_6h / 6
+        ratio = vol_1h / hourly_avg if hourly_avg > 0 else 1
+        # ratio of 1 = normal = 50; ratio of 3+ = 100
+        import math
+        vol_part = max(0, min(100, 50 + math.log2(max(ratio, 0.25)) * 25))
+    else:
+        vol_part = 50
+
+    score = 0.5 * price_part + 0.25 * pressure_part + 0.25 * vol_part
+    return round(score, 0)
+
+
 def tier_badge(score):
     if score is None: return '<span class="badge badge-bad">RISK HIDDEN</span>'
     if score >= 80: return '<span class="badge badge-good">HIGH SIGNAL</span>'
@@ -304,6 +337,11 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
             '</div>'
         )
 
+    # 1h price for the meta row
+    pc_1h = getattr(coin, "price_change_1h_pct", 0) or 0
+    pc_1h_class = "price-up" if pc_1h >= 0 else "price-down"
+    m1h = momentum_1h(coin)
+
     # Build the whole card as one flat string (no leading whitespace per line —
     # leading indentation makes Streamlit's markdown render it as a code block)
     card_html = (
@@ -318,6 +356,7 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
         '</div>'
         '<div class="meta-row">'
         f'<span><strong>{fmt_price(coin.price_usd)}</strong></span>'
+        f'<span class="{pc_1h_class}">{fmt_pct(pc_1h)} 1h</span>'
         f'<span class="{pc_class}">{fmt_pct(pc_24h)} 24h</span>'
         f'<span>MC {fmt_money(coin.market_cap_usd)}</span>'
         f'<span>Vol {fmt_money(coin.volume_24h_usd)}</span>'
@@ -326,13 +365,17 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
         '</div>'
         f'<div style="margin-top:9px;">{tier_badge(opp["score"])}{risk_badge(risk["score"])}</div>'
         '</div>'
-        '<div style="text-align:right; min-width:72px;">'
-        '<div class="score-label">Momentum</div>'
-        f'<div class="score-display">{mom["total"]:.0f}</div>'
+        '<div style="text-align:right; min-width:60px;">'
+        '<div class="score-label">1h Mom</div>'
+        f'<div class="score-display" style="font-size:22px; color:#7dd3fc;">{m1h:.0f}</div>'
         '</div>'
-        '<div style="text-align:right; min-width:72px;">'
-        '<div class="score-label">Opportunity</div>'
-        f'<div class="score-display {opp_class}">{opp_display}</div>'
+        '<div style="text-align:right; min-width:60px;">'
+        '<div class="score-label">Mom 24h</div>'
+        f'<div class="score-display" style="font-size:22px;">{mom["total"]:.0f}</div>'
+        '</div>'
+        '<div style="text-align:right; min-width:60px;">'
+        '<div class="score-label">Opp</div>'
+        f'<div class="score-display {opp_class}" style="font-size:22px;">{opp_display}</div>'
         '</div>'
         '</div>'
         f'{pressure_html}'
@@ -612,7 +655,14 @@ with st.sidebar:
         ["All DEXes", "PumpSwap only", "Raydium only", "Meteora only"],
         help="PumpSwap is pump.fun's native DEX — where their tokens trade after bonding")
     sort_by = st.selectbox("Sort by",
-        ["Opportunity", "Momentum", "Risk (low to high)", "Volume", "Price 24h"])
+        ["1h Momentum", "Price 1h", "Opportunity", "Momentum (24h)",
+         "Risk (low to high)", "Volume", "Price 24h"],
+        help="'1h Momentum' and 'Price 1h' surface the freshest swings — best for fast-moving PumpSwap coins")
+    min_price_1h = st.select_slider("Min 1h price change",
+        options=[-100, 0, 5, 10, 25, 50, 100],
+        value=-100,
+        format_func=lambda x: "Any" if x == -100 else f"+{x}%",
+        help="Only show coins up at least this much in the last hour")
     show_high_risk = st.checkbox("Show high-risk coins", value=False,
         help="Coins with risk ≥ 60 are hidden by default")
     min_liquidity = st.select_slider("Min liquidity",
@@ -739,10 +789,13 @@ with main_tab1:
             if c.liquidity_usd >= min_liquidity
             and (show_high_risk or a["scam_risk"]["score"] < 60)
             and (wanted_dex is None or getattr(c, "dex_id", "") == wanted_dex)
+            and (min_price_1h == -100 or (getattr(c, "price_change_1h_pct", 0) or 0) >= min_price_1h)
         ]
         sort_fns = {
+            "1h Momentum": lambda x: momentum_1h(x[0]),
+            "Price 1h": lambda x: getattr(x[0], "price_change_1h_pct", 0) or 0,
             "Opportunity": lambda x: x[1]["opportunity"]["score"] if x[1]["opportunity"]["score"] is not None else -1,
-            "Momentum": lambda x: x[1]["momentum"]["total"],
+            "Momentum (24h)": lambda x: x[1]["momentum"]["total"],
             "Risk (low to high)": lambda x: -x[1]["scam_risk"]["score"],
             "Volume": lambda x: x[0].volume_24h_usd,
             "Price 24h": lambda x: x[0].price_change_24h_pct,
