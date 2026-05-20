@@ -630,18 +630,18 @@ with main_tab1:
         c4.metric("☠ Critical", critical)
 
         st.markdown("---")
-        st.markdown("### 🏆 Top 10 Opportunities")
-        top_10 = [(c, a) for c, a in filtered if a["opportunity"]["score"] is not None][:10]
-        if not top_10:
+        st.markdown("### 🏆 Top 30 Opportunities")
+        top_30 = [(c, a) for c, a in filtered if a["opportunity"]["score"] is not None][:30]
+        if not top_30:
             st.info("No coins meet the opportunity threshold with current filters.")
         else:
-            for i, (coin, analysis) in enumerate(top_10, 1):
+            for i, (coin, analysis) in enumerate(top_30, 1):
                 render_coin_card(coin, analysis, rank=i, key_prefix="top")
 
-        if len(filtered) > 10:
+        if len(filtered) > 30:
             st.markdown("---")
             with st.expander(f"All discovered coins ({len(filtered)})", expanded=False):
-                for i, (coin, analysis) in enumerate(filtered[10:], 11):
+                for i, (coin, analysis) in enumerate(filtered[30:], 31):
                     render_coin_card(coin, analysis, rank=i, key_prefix="all")
 
 
