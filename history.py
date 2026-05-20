@@ -398,3 +398,108 @@ def stats_summary() -> dict:
             }
     except Exception:
         return {"snapshots": 0, "unique_coins": 0, "watchlist": 0, "earliest": None}
+
+
+# ---------------------------------------------------------------------------
+# Velocity — rate of change between recent snapshots (the early-trend signal)
+# ---------------------------------------------------------------------------
+
+def get_velocity(contract: str, window_minutes: float = 30) -> dict | None:
+    """Compare the most recent snapshot to one ~window_minutes ago.
+
+    Returns rate-of-change metrics that reveal whether a coin is ACCELERATING
+    right now — the actual early signal — rather than just sitting at a high
+    absolute score. Returns None if we don't have two snapshots far enough apart.
+
+    Output: {
+        minutes_span, price_change_pct, momentum_delta, holder_change_pct,
+        opportunity_delta, volume_change_pct, accelerating (bool)
+    }
+    """
+    try:
+        with _connect() as conn:
+            cur = conn.execute("""
+                SELECT * FROM snapshots WHERE contract = ?
+                ORDER BY timestamp DESC LIMIT 50
+            """, (contract,))
+            rows = [dict(r) for r in cur.fetchall()]
+    except Exception:
+        return None
+
+    if len(rows) < 2:
+        return None
+
+    latest = rows[0]
+    # Find the snapshot closest to window_minutes ago
+    latest_t = datetime.fromisoformat(latest["timestamp"])
+    target_t = latest_t - timedelta(minutes=window_minutes)
+
+    prior = None
+    best_gap = None
+    for r in rows[1:]:
+        rt = datetime.fromisoformat(r["timestamp"])
+        gap = abs((rt - target_t).total_seconds())
+        if best_gap is None or gap < best_gap:
+            best_gap = gap
+            prior = r
+
+    if not prior:
+        return None
+
+    prior_t = datetime.fromisoformat(prior["timestamp"])
+    minutes_span = (latest_t - prior_t).total_seconds() / 60
+    if minutes_span < 2:  # too close together to be meaningful
+        return None
+
+    def pct_change(new, old):
+        if old and old > 0:
+            return (new - old) / old * 100
+        return 0.0
+
+    price_change = pct_change(latest["price_usd"], prior["price_usd"])
+    volume_change = pct_change(latest["volume_24h_usd"], prior["volume_24h_usd"])
+    holder_change = pct_change(latest["holder_count"], prior["holder_count"])
+    momentum_delta = (latest["momentum_score"] or 0) - (prior["momentum_score"] or 0)
+    opp_new = latest["opportunity_score"] or 0
+    opp_old = prior["opportunity_score"] or 0
+    opp_delta = opp_new - opp_old
+
+    # "Accelerating" = price rising AND momentum rising AND holders growing
+    accelerating = (price_change > 0 and momentum_delta > 0 and holder_change >= 0)
+
+    return {
+        "minutes_span": round(minutes_span, 1),
+        "price_change_pct": round(price_change, 2),
+        "volume_change_pct": round(volume_change, 1),
+        "holder_change_pct": round(holder_change, 2),
+        "momentum_delta": round(momentum_delta, 1),
+        "opportunity_delta": round(opp_delta, 1),
+        "accelerating": accelerating,
+    }
+
+
+def get_all_velocities(window_minutes: float = 30, min_snapshots: int = 2) -> dict:
+    """Compute velocity for every coin that has enough recent history.
+
+    Returns {contract: velocity_dict}. Used to enrich the live coin list so
+    we can flag and sort by acceleration without per-coin DB calls in a loop.
+    """
+    out = {}
+    try:
+        with _connect() as conn:
+            # Only consider coins with at least min_snapshots in the last 2 hours
+            cutoff = (datetime.utcnow() - timedelta(hours=2)).isoformat()
+            cur = conn.execute("""
+                SELECT contract, COUNT(*) as n FROM snapshots
+                WHERE timestamp > ?
+                GROUP BY contract HAVING n >= ?
+            """, (cutoff, min_snapshots))
+            contracts = [r["contract"] for r in cur.fetchall()]
+    except Exception:
+        return out
+
+    for c in contracts:
+        v = get_velocity(c, window_minutes)
+        if v:
+            out[c] = v
+    return out

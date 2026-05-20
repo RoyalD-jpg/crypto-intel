@@ -317,6 +317,19 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
                 "orca": "Orca", "fluxbeam": "FluxBeam"}.get(dex_id, dex_id.title())
         dex_html = f'<span class="dex-pill">{nice}</span>'
 
+    # Acceleration badge — pulled from the global velocities dict if present
+    accel_html = ""
+    vel = velocities.get(coin.contract_address) if "velocities" in globals() else None
+    if vel and vel.get("accelerating"):
+        accel_html = (f'<span class="dex-pill" style="background:#14331f; color:#5ed39a;">'
+                      f'&#9650; ACCELERATING +{vel["price_change_pct"]:.0f}% / {vel["minutes_span"]:.0f}m</span>')
+
+    # Bundle warning pill if Helius flagged it
+    bundle_html = ""
+    if getattr(coin, "likely_bundle", False):
+        bundle_html = ('<span class="dex-pill" style="background:#3a1a1a; color:#f08a8a;">'
+                       '&#9888; BUNDLE RISK</span>')
+
     # Buy/sell pressure bar (from real DexScreener txn data if present)
     buy_pressure = getattr(coin, "buy_pressure_1h", None)
     buys = getattr(coin, "buys_1h", 0)
@@ -353,6 +366,8 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
         f'<span style="color:#8b92a3; font-size:13px;">{safe_name}</span>'
         f'<span class="chain-pill">{coin.chain}</span>'
         f'{dex_html}'
+        f'{accel_html}'
+        f'{bundle_html}'
         '</div>'
         '<div class="meta-row">'
         f'<span><strong>{fmt_price(coin.price_usd)}</strong></span>'
@@ -770,7 +785,15 @@ st.markdown(f"<p style='opacity:0.5; margin-top:-12px;'>Solana · Updated {datet
            unsafe_allow_html=True)
 st.caption("Filters & search are in the sidebar on the left.")
 
-main_tab1, main_tab2, main_tab3 = st.tabs(["🎯 Discover", "⭐ Watchlist", "📐 Calibration"])
+main_tab1, main_tabaccel, main_tab2, main_tab3 = st.tabs(
+    ["🎯 Discover", "🚀 Accelerating", "⭐ Watchlist", "📐 Calibration"])
+
+# Compute velocities once (cached short) — used by Discover badges + Accelerating tab
+@st.cache_data(ttl=120, show_spinner=False)
+def cached_velocities():
+    return history.get_all_velocities(window_minutes=30, min_snapshots=2)
+
+velocities = cached_velocities()
 
 # ===== DISCOVER TAB =====
 with main_tab1:
@@ -833,6 +856,52 @@ with main_tab1:
                 with st.expander(f"More coins ({len(filtered) - 30} additional)", expanded=False):
                     for i, (coin, analysis) in enumerate(filtered[30:], 31):
                         render_coin_card(coin, analysis, rank=i, key_prefix="all")
+
+
+# ===== ACCELERATING TAB =====
+with main_tabaccel:
+    st.markdown("### 🚀 Accelerating right now")
+    st.caption("Coins climbing across recent snapshots — price up, momentum rising, holders growing. "
+              "This is the early-trend signal: not what's already high, but what's *moving up* fastest. "
+              "Needs at least two snapshots ~30 min apart, so it fills in as the app keeps running.")
+
+    if not scored:
+        st.info("No live data loaded yet.")
+    elif not velocities:
+        st.info("Not enough snapshot history yet to compute acceleration. Keep the app running — "
+               "this view needs at least two snapshots per coin, roughly 30 minutes apart. "
+               "Check back in an hour or two.")
+    else:
+        # Match velocity data to currently-live coins
+        scored_by_addr = {c.contract_address: (c, a) for c, a in scored}
+        accel_rows = []
+        for addr, vel in velocities.items():
+            if not vel.get("accelerating"):
+                continue
+            if addr not in scored_by_addr:
+                continue
+            c, a = scored_by_addr[addr]
+            # Apply the same risk filter as Discover
+            if not show_high_risk and a["scam_risk"]["score"] >= 60:
+                continue
+            accel_rows.append((c, a, vel))
+
+        # Sort by price velocity (fastest climbers first)
+        accel_rows.sort(key=lambda x: x[2]["price_change_pct"], reverse=True)
+
+        if not accel_rows:
+            st.info("Nothing is accelerating in the current set with your filters. "
+                   "Try enabling 'Show high-risk coins' in the sidebar, or check back shortly.")
+        else:
+            st.markdown(f"**{len(accel_rows)} coins accelerating**")
+            for i, (coin, analysis, vel) in enumerate(accel_rows[:30], 1):
+                render_coin_card(coin, analysis, rank=i, key_prefix="accel")
+                st.caption(
+                    f"   ↗ Over last {vel['minutes_span']:.0f}m: "
+                    f"price {vel['price_change_pct']:+.1f}%, "
+                    f"momentum {vel['momentum_delta']:+.0f}, "
+                    f"holders {vel['holder_change_pct']:+.1f}%"
+                )
 
 
 # ===== WATCHLIST TAB =====

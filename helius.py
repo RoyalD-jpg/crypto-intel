@@ -68,6 +68,17 @@ def enrich_solana_coin(coin):
         if holder_count and holder_count > 0:
             coin.holder_count = holder_count
 
+        # Bundle / sniper concentration signal: if a cluster of the top
+        # non-pool wallets holds a large share on a young token, that's the
+        # classic bundle launch pattern (one entity across many wallets).
+        # We approximate "bundle" as top-5 wallets (excluding the largest,
+        # which is usually the LP) holding a heavy combined share.
+        top5_ex_pool = on_chain.get("top5_excluding_largest_pct")
+        if top5_ex_pool is not None:
+            coin.bundle_concentration_pct = top5_ex_pool
+            # Flag as likely bundle if those 5 wallets hold >25% on a <7d token
+            coin.likely_bundle = (top5_ex_pool > 25 and coin.token_age_days < 7)
+
     except Exception:
         # Helius issues should never break the dashboard — fall back to defaults
         return
@@ -108,6 +119,13 @@ def _fetch_token_onchain(mint: str) -> dict:
             top_10_pct = sum(h["amount"] for h in holders[:10]) / total * 100
             result["top_wallet_pct"] = round(top_pct, 2)
             result["top_10_holder_pct"] = round(top_10_pct, 2)
+            # Top 5 EXCLUDING the largest holder (largest is usually the LP
+            # pool, which isn't a concentration risk). The next 5 wallets
+            # holding a heavy share is the bundle/sniper signature.
+            if len(holders) > 1:
+                next5 = holders[1:6]
+                top5_ex = sum(h["amount"] for h in next5) / total * 100
+                result["top5_excluding_largest_pct"] = round(top5_ex, 2)
 
     return result
 
