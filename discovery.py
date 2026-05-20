@@ -336,48 +336,105 @@ def discover_trending(max_per_chain: int = 25) -> list[CoinData]:
 # ---------------------------------------------------------------------------
 
 def lookup_one(query: str) -> CoinData | None:
-    """Find a single coin by name, symbol, or contract address."""
+    """Single coin lookup — returns the best match.
+
+    For broad compatibility we keep this returning one coin. Use search_many()
+    when you want to disambiguate between coins sharing a symbol.
+    """
+    results = search_many(query, limit=1)
+    return results[0] if results else None
+
+
+def search_many(query: str, limit: int = 8) -> list[CoinData]:
+    """Return up to `limit` candidates matching the query.
+
+    Strategy:
+      1. If it looks like a contract address, fetch all its pairs (could be
+         multi-chain or multi-pool — return distinct ones).
+      2. Otherwise search by symbol/name and return the top matches.
+      3. Enrich Solana results with Helius.
+
+    Newly-launched coins (1 minute old) appear here because DexScreener
+    indexes new pairs within seconds. The user just needs to either know
+    the contract address, or accept that "PEPE" will return the most-liquid
+    PEPE first (which is what they almost always want).
+    """
     query = query.strip()
     if not query:
-        return None
+        return []
 
-    coin = None
+    coins: list[CoinData] = []
+    seen_addrs: set[str] = set()
 
-    # Contract address (long hex string or Solana base58)
-    if query.startswith("0x") or len(query) > 30:
+    def add(coin: CoinData | None):
+        if not coin:
+            return
+        addr = coin.contract_address
+        if not addr or addr in seen_addrs:
+            return
+        seen_addrs.add(addr)
+        coins.append(coin)
+
+    # Step 1: Contract address path
+    is_addr = query.startswith("0x") or (len(query) >= 32 and " " not in query)
+    if is_addr:
         try:
             r = requests.get(f"{DS_LATEST}/tokens/{query}", timeout=TIMEOUT)
             if r.status_code == 200:
                 pairs = r.json().get("pairs") or []
-                if pairs:
-                    pairs.sort(key=lambda p: (p.get("liquidity") or {}).get("usd") or 0,
-                              reverse=True)
-                    coin = pair_to_coindata(pairs[0])
+                # Highest-liquidity pair per chain
+                pairs.sort(key=lambda p: (p.get("liquidity") or {}).get("usd") or 0,
+                          reverse=True)
+                for p in pairs[:limit]:
+                    add(pair_to_coindata(p))
         except Exception:
             pass
 
-    # Search by name/symbol on DexScreener
-    if not coin:
+    # Step 2: Symbol/name search
+    if len(coins) < limit:
         try:
             r = requests.get(f"{DS_LATEST}/search", params={"q": query}, timeout=TIMEOUT)
             if r.status_code == 200:
                 pairs = r.json().get("pairs") or []
-                exact = [p for p in pairs
-                        if (p.get("baseToken") or {}).get("symbol", "").upper() == query.upper()]
-                candidates = exact or pairs
-                candidates.sort(key=lambda p: (p.get("liquidity") or {}).get("usd") or 0,
-                               reverse=True)
-                if candidates:
-                    coin = pair_to_coindata(candidates[0])
+
+                # Group by token address, keep best (most liquid) pair per token
+                by_addr: dict[str, dict] = {}
+                for p in pairs:
+                    addr = (p.get("baseToken") or {}).get("address")
+                    if not addr:
+                        continue
+                    cur = by_addr.get(addr)
+                    cur_liq = (cur.get("liquidity") or {}).get("usd") or 0 if cur else -1
+                    new_liq = (p.get("liquidity") or {}).get("usd") or 0
+                    if new_liq > cur_liq:
+                        by_addr[addr] = p
+
+                # Rank: exact symbol match first, then by liquidity
+                qu = query.upper()
+                def rank(p):
+                    sym = (p.get("baseToken") or {}).get("symbol", "").upper()
+                    name = (p.get("baseToken") or {}).get("name", "").upper()
+                    liq = (p.get("liquidity") or {}).get("usd") or 0
+                    exact_sym = (sym == qu)
+                    starts = sym.startswith(qu) or name.startswith(qu)
+                    # negative for descending sort
+                    return (-int(exact_sym), -int(starts), -liq)
+
+                candidates = sorted(by_addr.values(), key=rank)
+                for p in candidates:
+                    if len(coins) >= limit:
+                        break
+                    add(pair_to_coindata(p))
         except Exception:
             pass
 
-    # Enrich with Helius if available
-    if coin:
-        try:
-            from helius import enrich_solana_coin
-            enrich_solana_coin(coin)
-        except Exception:
-            pass
+    # Step 3: Enrich with Helius
+    try:
+        from helius import enrich_solana_coin, is_configured
+        if is_configured():
+            with ThreadPoolExecutor(max_workers=min(8, max(1, len(coins)))) as ex:
+                list(ex.map(enrich_solana_coin, coins))
+    except Exception:
+        pass
 
-    return coin
+    return coins

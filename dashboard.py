@@ -307,13 +307,15 @@ def explain_flag(text):
 # Detail page with history chart
 # ---------------------------------------------------------------------------
 
-def render_coin_detail(coin, analysis):
+def render_coin_detail(coin, analysis, back_key: str = "detail_back"):
     mom = analysis["momentum"]
     risk = analysis["scam_risk"]
     opp = analysis["opportunity"]
 
-    if st.button("← Back"):
+    if st.button("← Back", key=back_key):
         st.session_state.detail_address = None
+        st.session_state.search_query = None
+        st.session_state.search_results = None
         st.rerun()
 
     pc_class = "price-up" if coin.price_change_24h_pct >= 0 else "price-down"
@@ -338,6 +340,7 @@ def render_coin_detail(coin, analysis):
 
     # Watch toggle
     if st.button(("★ Remove from watchlist" if is_w else "☆ Add to watchlist"),
+                 key=f"detail_watch_{coin.contract_address}",
                  type=("secondary" if is_w else "primary")):
         if is_w:
             history.remove_from_watchlist(coin.contract_address)
@@ -466,12 +469,17 @@ def render_coin_detail(coin, analysis):
 with st.sidebar:
     st.markdown("## 🔍 Search")
     search = st.text_input("Coin symbol or contract address",
-                          placeholder="e.g. WIF",
+                          placeholder="WIF, BONK, or paste contract...",
                           label_visibility="collapsed")
     if st.button("Analyze", use_container_width=True, type="primary"):
         if search.strip():
+            # Reset any prior search state
             st.session_state.search_query = search.strip()
+            st.session_state.search_results = None
+            st.session_state.detail_address = None
             st.rerun()
+    st.caption("💡 For brand-new coins, paste the **contract address** — "
+               "symbol search finds the most-liquid match, not the newest one.")
 
     st.markdown("---")
     st.markdown("## ⚙️ Filters")
@@ -512,32 +520,67 @@ if "detail_address" not in st.session_state:
     st.session_state.detail_address = None
 if "search_query" not in st.session_state:
     st.session_state.search_query = None
+if "search_results" not in st.session_state:
+    st.session_state.search_results = None
 
-# Search detail
-if st.session_state.search_query:
+# Search flow: multi-result picker, then click into a specific coin
+if st.session_state.search_query and not st.session_state.detail_address:
     q = st.session_state.search_query
-    if st.button("← Back"):
+    if st.button("← Back", key="search_back"):
         st.session_state.search_query = None
+        st.session_state.search_results = None
         st.rerun()
-    with st.spinner(f"Looking up {q}..."):
-        result = cached_lookup(q)
-    if result is None:
-        st.error(f"Couldn't find '{q}'. Try a contract address or specific symbol.")
+
+    # Fetch results if we don't have them cached for this query yet
+    if (st.session_state.search_results is None
+            or st.session_state.search_results.get("query") != q):
+        with st.spinner(f"Searching for '{q}'..."):
+            from discovery import search_many
+            matches = search_many(q, limit=10)
+        st.session_state.search_results = {"query": q, "matches": matches}
+
+    matches = st.session_state.search_results["matches"]
+
+    if not matches:
+        st.error(f"Couldn't find '{q}'.")
+        st.markdown("**Tips for finding new or obscure coins:**")
+        st.markdown(
+            "- For brand-new coins (under a few hours old), use the **contract address**, "
+            "not the symbol. Symbol search returns the most-liquid match, which won't be "
+            "a new launch.\n"
+            "- Find contract addresses on [pump.fun](https://pump.fun) (newest tab), "
+            "[DexScreener new pairs](https://dexscreener.com/new-pairs/solana), or by "
+            "right-clicking a token in your wallet.\n"
+            "- For Solana addresses, paste the full 32–44 character base58 string."
+        )
+    elif len(matches) == 1:
+        # Single result — show detail directly
+        coin = matches[0]
+        analysis = full_analysis(coin)
+        history.record_snapshot(coin, analysis)
+        render_coin_detail(coin, analysis, back_key="single_match_back")
     else:
-        render_coin_detail(*result)
+        # Multiple results — let user pick
+        st.markdown(f"### Found {len(matches)} coins matching '{q}'")
+        st.caption("Sorted by exact symbol match, then liquidity. Pick the right one — "
+                  "or paste a contract address for an exact lookup.")
+        for i, coin in enumerate(matches):
+            analysis = full_analysis(coin)
+            history.record_snapshot(coin, analysis)
+            render_coin_card(coin, analysis, rank=i + 1, key_prefix=f"srch_{i}")
     st.stop()
 
-# Coin detail
+# Coin detail (clicked from card)
 if st.session_state.detail_address:
     with st.spinner("Loading..."):
         result = cached_lookup(st.session_state.detail_address)
     if result is None:
         st.error("Couldn't load that coin.")
-        if st.button("← Back"):
+        if st.button("← Back", key="detail_err_back"):
             st.session_state.detail_address = None
             st.rerun()
     else:
-        render_coin_detail(*result)
+        render_coin_detail(*result, back_key="detail_main_back")
     st.stop()
 
 
