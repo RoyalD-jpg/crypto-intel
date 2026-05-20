@@ -189,47 +189,62 @@ def fetch_pair_for_token(chain: str, address: str) -> dict | None:
 # Source 2: DexScreener search by chain (gets top-volume coins)
 # ---------------------------------------------------------------------------
 
-def fetch_top_pairs_for_chain(chain: str, limit: int = 30) -> list[dict]:
-    """Use the search endpoint with a chain filter to surface top-volume pairs."""
-    try:
-        # Search by common quote tokens to find active pairs.
-        # For Solana we also search "pump" to surface pump.fun / PumpSwap tokens.
-        results = []
-        seen_addrs = set()
-        queries = {
-            "solana": ["SOL", "USDC", "pump"],
-            "ethereum": ["WETH", "USDC", "USDT"],
-            "base": ["WETH", "USDC"],
-            "bsc": ["WBNB", "BUSD"],
-        }.get(chain, ["USDC"])
+# Wide net of search terms. DexScreener's free API has no "top 300 by volume"
+# endpoint, so we cast a broad net across quote tokens, popular narratives, and
+# meme themes, then keep the highest-liquidity pair per unique token. This
+# reliably surfaces hundreds of coins instead of a couple dozen.
+_SEARCH_TERMS = {
+    "solana": [
+        "SOL", "USDC", "pump", "wif", "bonk", "pepe", "ai", "cat", "dog",
+        "trump", "meme", "moon", "inu", "baby", "elon", "shib", "doge",
+        "solana", "jup", "ray", "fwog", "popcat", "mew", "gigachad",
+    ],
+    "ethereum": ["WETH", "USDC", "USDT", "pepe", "ai", "shib", "meme", "doge", "inu"],
+    "base": ["WETH", "USDC", "base", "ai", "meme", "degen", "brett"],
+    "bsc": ["WBNB", "USDT", "BUSD", "meme", "doge", "inu", "baby"],
+}
 
-        for q in queries:
-            try:
-                r = requests.get(f"{DS_LATEST}/search", params={"q": q}, timeout=TIMEOUT)
-                if r.status_code != 200:
+
+def fetch_top_pairs_for_chain(chain: str, limit: int = 120) -> list[dict]:
+    """Search many terms, keep the best (most-liquid) pair per unique token.
+
+    Returns up to `limit` distinct token pairs for the chain, sorted by 24h
+    volume descending so the most active coins come first.
+    """
+    queries = _SEARCH_TERMS.get(chain, ["USDC"])
+    best_by_addr: dict[str, dict] = {}
+
+    def run_query(q: str) -> list[dict]:
+        try:
+            r = requests.get(f"{DS_LATEST}/search", params={"q": q}, timeout=TIMEOUT)
+            if r.status_code != 200:
+                return []
+            return r.json().get("pairs") or []
+        except Exception:
+            return []
+
+    # Run all the searches in parallel for speed
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for pairs in ex.map(run_query, queries):
+            for p in pairs:
+                if (p.get("chainId") or "").lower() != chain:
                     continue
-                pairs = r.json().get("pairs") or []
-                for p in pairs:
-                    if (p.get("chainId") or "").lower() != chain:
-                        continue
-                    addr = (p.get("baseToken") or {}).get("address")
-                    if not addr or addr in seen_addrs:
-                        continue
-                    # Filter: at least $10k liquidity, not the quote token itself
-                    liq = (p.get("liquidity") or {}).get("usd") or 0
-                    if liq < 10_000:
-                        continue
-                    seen_addrs.add(addr)
-                    results.append(p)
-                    if len(results) >= limit:
-                        break
-                if len(results) >= limit:
-                    break
-            except Exception:
-                continue
-        return results[:limit]
-    except Exception:
-        return []
+                addr = (p.get("baseToken") or {}).get("address")
+                if not addr:
+                    continue
+                liq = (p.get("liquidity") or {}).get("usd") or 0
+                if liq < 5_000:  # very low bar here; UI filter handles the rest
+                    continue
+                # Keep the most-liquid pair we've seen for this token
+                cur = best_by_addr.get(addr)
+                cur_liq = (cur.get("liquidity") or {}).get("usd") or 0 if cur else -1
+                if liq > cur_liq:
+                    best_by_addr[addr] = p
+
+    # Sort by 24h volume descending
+    pairs = list(best_by_addr.values())
+    pairs.sort(key=lambda p: (p.get("volume") or {}).get("h24") or 0, reverse=True)
+    return pairs[:limit]
 
 
 # ---------------------------------------------------------------------------

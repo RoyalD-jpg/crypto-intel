@@ -168,7 +168,7 @@ st.markdown("""
 
 @st.cache_data(ttl=300, show_spinner=False)
 def cached_discover():
-    coins = discover_trending(max_per_chain=40)
+    coins = discover_trending(max_per_chain=150)
     scored = []
     for c in coins:
         try:
@@ -745,19 +745,23 @@ with main_tab1:
         c4.metric("☠ Critical", critical)
 
         st.markdown("---")
-        st.markdown("### 🏆 Top 30 Opportunities")
-        top_30 = [(c, a) for c, a in filtered if a["opportunity"]["score"] is not None][:30]
-        if not top_30:
-            st.info("No coins meet the opportunity threshold with current filters.")
+        dex_note = f" · {dex_filter}" if dex_filter != "All DEXes" else ""
+        st.markdown(f"### 🏆 Top 30{dex_note}")
+
+        if not filtered:
+            st.info("No coins match these filters. Try lowering 'Min liquidity', "
+                   "enabling 'Show high-risk coins', or switching DEX to 'All DEXes'.")
         else:
+            # 'filtered' is already sorted by the chosen sort key. Just take the top 30.
+            top_30 = filtered[:30]
             for i, (coin, analysis) in enumerate(top_30, 1):
                 render_coin_card(coin, analysis, rank=i, key_prefix="top")
 
-        if len(filtered) > 30:
-            st.markdown("---")
-            with st.expander(f"All discovered coins ({len(filtered)})", expanded=False):
-                for i, (coin, analysis) in enumerate(filtered[30:], 31):
-                    render_coin_card(coin, analysis, rank=i, key_prefix="all")
+            if len(filtered) > 30:
+                st.markdown("---")
+                with st.expander(f"More coins ({len(filtered) - 30} additional)", expanded=False):
+                    for i, (coin, analysis) in enumerate(filtered[30:], 31):
+                        render_coin_card(coin, analysis, rank=i, key_prefix="all")
 
 
 # ===== WATCHLIST TAB =====
