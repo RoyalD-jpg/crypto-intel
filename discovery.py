@@ -25,8 +25,9 @@ DS = "https://api.dexscreener.com"
 DS_LATEST = "https://api.dexscreener.com/latest/dex"
 CG = "https://api.coingecko.com/api/v3"
 
-# Chains we'll surface. DexScreener uses these IDs.
-SUPPORTED_CHAINS = {"solana", "ethereum", "base", "bsc"}
+# Chains we'll surface. Solana-only for now — that's where most of the
+# action lives and where Helius gives us real on-chain risk data.
+SUPPORTED_CHAINS = {"solana"}
 
 # Request timeout per call (seconds)
 TIMEOUT = 10
@@ -318,6 +319,15 @@ def discover_trending(max_per_chain: int = 25) -> list[CoinData]:
         if cd:
             coins.append(cd)
 
+    # Enrich with on-chain data from Helius (in parallel, best-effort)
+    try:
+        from helius import enrich_solana_coin, is_configured
+        if is_configured():
+            with ThreadPoolExecutor(max_workers=10) as ex:
+                list(ex.map(enrich_solana_coin, coins))
+    except Exception:
+        pass  # if Helius is unavailable, scoring still works with defaults
+
     return coins
 
 
@@ -331,6 +341,8 @@ def lookup_one(query: str) -> CoinData | None:
     if not query:
         return None
 
+    coin = None
+
     # Contract address (long hex string or Solana base58)
     if query.startswith("0x") or len(query) > 30:
         try:
@@ -340,25 +352,32 @@ def lookup_one(query: str) -> CoinData | None:
                 if pairs:
                     pairs.sort(key=lambda p: (p.get("liquidity") or {}).get("usd") or 0,
                               reverse=True)
-                    return pair_to_coindata(pairs[0])
+                    coin = pair_to_coindata(pairs[0])
         except Exception:
             pass
 
     # Search by name/symbol on DexScreener
-    try:
-        r = requests.get(f"{DS_LATEST}/search", params={"q": query}, timeout=TIMEOUT)
-        if r.status_code == 200:
-            pairs = r.json().get("pairs") or []
-            # Prefer pairs where symbol matches exactly
-            exact = [p for p in pairs
-                    if (p.get("baseToken") or {}).get("symbol", "").upper() == query.upper()]
-            candidates = exact or pairs
-            # Then by liquidity
-            candidates.sort(key=lambda p: (p.get("liquidity") or {}).get("usd") or 0,
-                           reverse=True)
-            if candidates:
-                return pair_to_coindata(candidates[0])
-    except Exception:
-        pass
+    if not coin:
+        try:
+            r = requests.get(f"{DS_LATEST}/search", params={"q": query}, timeout=TIMEOUT)
+            if r.status_code == 200:
+                pairs = r.json().get("pairs") or []
+                exact = [p for p in pairs
+                        if (p.get("baseToken") or {}).get("symbol", "").upper() == query.upper()]
+                candidates = exact or pairs
+                candidates.sort(key=lambda p: (p.get("liquidity") or {}).get("usd") or 0,
+                               reverse=True)
+                if candidates:
+                    coin = pair_to_coindata(candidates[0])
+        except Exception:
+            pass
 
-    return None
+    # Enrich with Helius if available
+    if coin:
+        try:
+            from helius import enrich_solana_coin
+            enrich_solana_coin(coin)
+        except Exception:
+            pass
+
+    return coin
