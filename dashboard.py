@@ -55,25 +55,29 @@ st.markdown("""
 <style>
     #MainMenu, footer, header {visibility: hidden;}
 
-    /* App background: deep slate with a subtle radial glow */
+    /* App background: lighter slate so content reads clearly */
     .stApp {
         background:
-            radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.08), transparent 60%),
-            radial-gradient(1000px 500px at 100% 0%, rgba(168,85,247,0.06), transparent 55%),
-            #0a0b0f;
+            radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.10), transparent 60%),
+            radial-gradient(1000px 500px at 100% 0%, rgba(168,85,247,0.08), transparent 55%),
+            #12141c;
+        color: #e8edf4;
     }
     .block-container {padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1320px;}
 
+    /* Base text — bright enough to read comfortably */
+    .stApp, .stMarkdown, p, span, div, label {color: #e8edf4;}
+
     /* Typography */
     html, body, [class*="css"] {font-family: 'Space Grotesk', system-ui, sans-serif;}
-    h1, h2, h3 {font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em;}
+    h1, h2, h3 {font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; color: #f8fafc;}
     .mono {font-family: 'JetBrains Mono', monospace;}
 
-    /* Cards */
+    /* Cards — lighter surface, clearer borders */
     .coin-card {
         position: relative;
-        background: linear-gradient(160deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.012) 100%);
-        border: 1px solid rgba(255,255,255,0.07);
+        background: linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.025) 100%);
+        border: 1px solid rgba(255,255,255,0.12);
         border-radius: 14px;
         padding: 15px 18px;
         margin-bottom: 9px;
@@ -83,16 +87,16 @@ st.markdown("""
     .coin-card::before {
         content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
         background: var(--accent, transparent);
-        opacity: 0.85;
+        opacity: 0.9;
     }
     .coin-card:hover {
-        border-color: rgba(255,255,255,0.16);
+        border-color: rgba(255,255,255,0.24);
         transform: translateY(-1px);
-        background: linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+        background: linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.035) 100%);
     }
     .coin-rank {
         font-family: 'JetBrains Mono', monospace;
-        opacity: 0.35; font-size: 13px; margin-right: 9px; font-weight: 500;
+        opacity: 0.45; font-size: 13px; margin-right: 9px; font-weight: 500;
     }
 
     /* Badges */
@@ -111,16 +115,16 @@ st.markdown("""
 
     .score-display {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 28px; font-weight: 700; line-height: 1;
+        font-size: 28px; font-weight: 700; line-height: 1; color: #f8fafc;
     }
-    .score-display-dim {color: #64748b;}
+    .score-display-dim {color: #94a3b8;}
     .score-label {
         font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px;
-        opacity: 0.5; margin-bottom: 3px; font-weight: 500;
+        opacity: 0.65; margin-bottom: 3px; font-weight: 500;
     }
 
     .meta-row {
-        display: flex; gap: 13px; font-size: 12px; opacity: 0.72;
+        display: flex; gap: 13px; font-size: 12px; color: #cbd5e1;
         margin-top: 7px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace;
     }
     .price-up {color: #4ade80;}
@@ -297,51 +301,52 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
     if buy_pressure is not None and (buys + sells) > 0:
         buy_pct = buy_pressure * 100
         sell_pct = 100 - buy_pct
-        pressure_html = f"""
-          <div class="pressure-bar">
-            <div class="pressure-buy" style="width:{buy_pct:.0f}%;"></div>
-            <div class="pressure-sell" style="width:{sell_pct:.0f}%;"></div>
-          </div>
-          <div class="pressure-labels">
-            <span style="color:#4ade80;">▲ {buys} buys</span>
-            <span>{buy_pct:.0f}% buy pressure (1h)</span>
-            <span style="color:#f87171;">{sells} sells ▼</span>
-          </div>"""
+        pressure_html = (
+            '<div class="pressure-bar">'
+            f'<div class="pressure-buy" style="width:{buy_pct:.0f}%;"></div>'
+            f'<div class="pressure-sell" style="width:{sell_pct:.0f}%;"></div>'
+            '</div>'
+            '<div class="pressure-labels">'
+            f'<span style="color:#4ade80;">&#9650; {buys} buys</span>'
+            f'<span>{buy_pct:.0f}% buy pressure (1h)</span>'
+            f'<span style="color:#f87171;">{sells} sells &#9660;</span>'
+            '</div>'
+        )
 
-    st.markdown(f"""
-    <div class="coin-card" style="--accent: {accent};">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
-        <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="font-size:17px; font-weight:600;">{rank_html}{watch_marker}{coin.symbol}</span>
-            <span style="opacity:0.55; font-size:13px;">{safe_name}</span>
-            <span class="chain-pill">{coin.chain}</span>
-          </div>
-          <div class="meta-row">
-            <span style="color:#e2e8f0;"><strong>{fmt_price(coin.price_usd)}</strong></span>
-            <span class="{pc_class}">{fmt_pct(pc_24h)} 24h</span>
-            <span>MC {fmt_money(coin.market_cap_usd)}</span>
-            <span>Vol {fmt_money(coin.volume_24h_usd)}</span>
-            <span>Liq {fmt_money(coin.liquidity_usd)}</span>
-            <span>{coin.token_age_days:.0f}d</span>
-          </div>
-          <div style="margin-top:9px;">
-            {tier_badge(opp["score"])}
-            {risk_badge(risk["score"])}
-          </div>
-        </div>
-        <div style="text-align:right; min-width:72px;">
-          <div class="score-label">Momentum</div>
-          <div class="score-display">{mom["total"]:.0f}</div>
-        </div>
-        <div style="text-align:right; min-width:72px;">
-          <div class="score-label">Opportunity</div>
-          <div class="score-display {opp_class}">{opp_display}</div>
-        </div>
-      </div>
-      {pressure_html}
-    </div>
-    """, unsafe_allow_html=True)
+    # Build the whole card as one flat string (no leading whitespace per line —
+    # leading indentation makes Streamlit's markdown render it as a code block)
+    card_html = (
+        f'<div class="coin-card" style="--accent: {accent};">'
+        '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">'
+        '<div style="flex:1; min-width:0;">'
+        '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">'
+        f'<span style="font-size:17px; font-weight:600; color:#f1f5f9;">{rank_html}{watch_marker}{coin.symbol}</span>'
+        f'<span style="opacity:0.6; font-size:13px;">{safe_name}</span>'
+        f'<span class="chain-pill">{coin.chain}</span>'
+        '</div>'
+        '<div class="meta-row">'
+        f'<span style="color:#f1f5f9;"><strong>{fmt_price(coin.price_usd)}</strong></span>'
+        f'<span class="{pc_class}">{fmt_pct(pc_24h)} 24h</span>'
+        f'<span>MC {fmt_money(coin.market_cap_usd)}</span>'
+        f'<span>Vol {fmt_money(coin.volume_24h_usd)}</span>'
+        f'<span>Liq {fmt_money(coin.liquidity_usd)}</span>'
+        f'<span>{coin.token_age_days:.0f}d</span>'
+        '</div>'
+        f'<div style="margin-top:9px;">{tier_badge(opp["score"])}{risk_badge(risk["score"])}</div>'
+        '</div>'
+        '<div style="text-align:right; min-width:72px;">'
+        '<div class="score-label">Momentum</div>'
+        f'<div class="score-display">{mom["total"]:.0f}</div>'
+        '</div>'
+        '<div style="text-align:right; min-width:72px;">'
+        '<div class="score-label">Opportunity</div>'
+        f'<div class="score-display {opp_class}">{opp_display}</div>'
+        '</div>'
+        '</div>'
+        f'{pressure_html}'
+        '</div>'
+    )
+    st.markdown(card_html, unsafe_allow_html=True)
 
     # Action buttons row
     btn_cols = st.columns([1, 1, 6])
@@ -412,21 +417,21 @@ def render_coin_detail(coin, analysis, back_key: str = "detail_back"):
     is_w = history.is_watched(coin.contract_address)
 
     # Header
-    st.markdown(f"""
-    <div style="margin-bottom: 20px;">
-      <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
-        <h1 style="margin:0;">{'⭐ ' if is_w else ''}{coin.symbol}</h1>
-        <span style="opacity:0.6; font-size:18px;">{coin.name}</span>
-        <span class="chain-pill">{coin.chain}</span>
-      </div>
-      <div style="margin-top:6px;">
-        <span style="font-size:28px; font-weight:600;">{fmt_price(coin.price_usd)}</span>
-        <span class="{pc_class}" style="margin-left:12px; font-size:16px;">{fmt_pct(coin.price_change_24h_pct)} 24h</span>
-        <span class="{pc_class}" style="margin-left:8px; font-size:13px; opacity:0.7;">{fmt_pct(coin.price_change_1h_pct)} 1h</span>
-      </div>
-      <div style="margin-top:10px;">{tier_badge(opp["score"])} {risk_badge(risk["score"])}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div style="margin-bottom: 20px;">'
+        '<div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">'
+        f'<h1 style="margin:0;">{"⭐ " if is_w else ""}{coin.symbol}</h1>'
+        f'<span style="opacity:0.6; font-size:18px;">{coin.name}</span>'
+        f'<span class="chain-pill">{coin.chain}</span>'
+        '</div>'
+        '<div style="margin-top:6px;">'
+        f'<span style="font-size:28px; font-weight:600; color:#f1f5f9;">{fmt_price(coin.price_usd)}</span>'
+        f'<span class="{pc_class}" style="margin-left:12px; font-size:16px;">{fmt_pct(coin.price_change_24h_pct)} 24h</span>'
+        f'<span class="{pc_class}" style="margin-left:8px; font-size:13px; opacity:0.7;">{fmt_pct(coin.price_change_1h_pct)} 1h</span>'
+        '</div>'
+        f'<div style="margin-top:10px;">{tier_badge(opp["score"])} {risk_badge(risk["score"])}</div>'
+        '</div>',
+        unsafe_allow_html=True)
 
     # Watch toggle
     if st.button(("★ Remove from watchlist" if is_w else "☆ Add to watchlist"),
@@ -467,30 +472,28 @@ def render_coin_detail(coin, analysis, back_key: str = "detail_back"):
                 total_1h = buys_1h + sells_1h
                 buy_pct_1h = (buys_1h / total_1h * 100) if total_1h else 0
                 st.markdown(f"**Last 1 hour** — {buy_pct_1h:.0f}% buys")
-                st.markdown(f"""
-                <div class="pressure-bar" style="height:8px;">
-                  <div class="pressure-buy" style="width:{buy_pct_1h:.0f}%;"></div>
-                  <div class="pressure-sell" style="width:{100-buy_pct_1h:.0f}%;"></div>
-                </div>
-                <div class="pressure-labels">
-                  <span style="color:#4ade80;">▲ {buys_1h} buys</span>
-                  <span style="color:#f87171;">{sells_1h} sells ▼</span>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="pressure-bar" style="height:8px;">'
+                    f'<div class="pressure-buy" style="width:{buy_pct_1h:.0f}%;"></div>'
+                    f'<div class="pressure-sell" style="width:{100-buy_pct_1h:.0f}%;"></div>'
+                    '</div><div class="pressure-labels">'
+                    f'<span style="color:#4ade80;">&#9650; {buys_1h} buys</span>'
+                    f'<span style="color:#f87171;">{sells_1h} sells &#9660;</span>'
+                    '</div>',
+                    unsafe_allow_html=True)
             with bp2:
                 total_24h = buys_24h + sells_24h
                 buy_pct_24h = (buys_24h / total_24h * 100) if total_24h else 0
                 st.markdown(f"**Last 24 hours** — {buy_pct_24h:.0f}% buys")
-                st.markdown(f"""
-                <div class="pressure-bar" style="height:8px;">
-                  <div class="pressure-buy" style="width:{buy_pct_24h:.0f}%;"></div>
-                  <div class="pressure-sell" style="width:{100-buy_pct_24h:.0f}%;"></div>
-                </div>
-                <div class="pressure-labels">
-                  <span style="color:#4ade80;">▲ {buys_24h} buys</span>
-                  <span style="color:#f87171;">{sells_24h} sells ▼</span>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="pressure-bar" style="height:8px;">'
+                    f'<div class="pressure-buy" style="width:{buy_pct_24h:.0f}%;"></div>'
+                    f'<div class="pressure-sell" style="width:{100-buy_pct_24h:.0f}%;"></div>'
+                    '</div><div class="pressure-labels">'
+                    f'<span style="color:#4ade80;">&#9650; {buys_24h} buys</span>'
+                    f'<span style="color:#f87171;">{sells_24h} sells &#9660;</span>'
+                    '</div>',
+                    unsafe_allow_html=True)
             st.caption("More buys than sells suggests accumulation; the reverse suggests distribution. "
                       "Not a guarantee of direction — large players can mask intent.")
 
@@ -581,12 +584,12 @@ def render_coin_detail(coin, analysis, back_key: str = "detail_back"):
         if coin.contract_address and coin.contract_address != "n/a":
             st.code(coin.contract_address, language=None)
             if coin.chain == "solana":
-                st.markdown(f"""
-                - [View on Solscan](https://solscan.io/token/{coin.contract_address})
-                - [Chart on DexScreener](https://dexscreener.com/solana/{coin.contract_address})
-                - [Risk check on rugcheck.xyz](https://rugcheck.xyz/tokens/{coin.contract_address})
-                - [Trade on Jupiter](https://jup.ag/swap/SOL-{coin.contract_address})
-                """)
+                st.markdown(
+                    f"- [View on Solscan](https://solscan.io/token/{coin.contract_address})\n"
+                    f"- [Chart on DexScreener](https://dexscreener.com/solana/{coin.contract_address})\n"
+                    f"- [Risk check on rugcheck.xyz](https://rugcheck.xyz/tokens/{coin.contract_address})\n"
+                    f"- [Trade on Jupiter](https://jup.ag/swap/SOL-{coin.contract_address})"
+                )
         else:
             st.caption("Contract address not available")
 
@@ -805,30 +808,30 @@ with main_tab2:
             was_opp_str = f"{w['added_at_opp']:.0f}" if w.get('added_at_opp') is not None else "—"
             now_opp_str = f"{latest['opportunity_score']:.0f}" if latest.get('opportunity_score') is not None else "—"
 
-            st.markdown(f"""
-            <div class="coin-card">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
-                <div style="flex:1;">
-                  <div style="font-size:18px; font-weight:600;">⭐ {w['symbol']}
-                    <span style="opacity:0.6; font-size:14px; font-weight:normal;">{(w.get('name') or '')[:40]}</span>
-                  </div>
-                  <div class="meta-row">
-                    <span><strong>{fmt_price(latest['price_usd'])}</strong></span>
-                    <span>Starred {hours_ago:.1f}h ago</span>
-                    <span>at {fmt_price(w['added_at_price'])}</span>
-                  </div>
-                  <div style="margin-top:8px;">
-                    <span class="badge badge-purple">Was: Mom {w['added_at_momentum']:.0f} · Opp {was_opp_str} · Risk {w['added_at_risk']}</span>
-                    <span class="badge badge-blue">Now: Mom {latest['momentum_score']:.0f} · Opp {now_opp_str} · Risk {latest['scam_risk_score']}</span>
-                  </div>
-                </div>
-                <div style="text-align:right; min-width:120px;">
-                  <div class="score-label">Since starred</div>
-                  <div class="score-display {since_class}">{since_pct:+.1f}%</div>
-                </div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                '<div class="coin-card">'
+                '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">'
+                '<div style="flex:1;">'
+                f'<div style="font-size:18px; font-weight:600; color:#f1f5f9;">⭐ {w["symbol"]} '
+                f'<span style="opacity:0.6; font-size:14px; font-weight:normal;">{(w.get("name") or "")[:40]}</span>'
+                '</div>'
+                '<div class="meta-row">'
+                f'<span style="color:#f1f5f9;"><strong>{fmt_price(latest["price_usd"])}</strong></span>'
+                f'<span>Starred {hours_ago:.1f}h ago</span>'
+                f'<span>at {fmt_price(w["added_at_price"])}</span>'
+                '</div>'
+                '<div style="margin-top:8px;">'
+                f'<span class="badge badge-purple">Was: Mom {w["added_at_momentum"]:.0f} &middot; Opp {was_opp_str} &middot; Risk {w["added_at_risk"]}</span>'
+                f'<span class="badge badge-blue">Now: Mom {latest["momentum_score"]:.0f} &middot; Opp {now_opp_str} &middot; Risk {latest["scam_risk_score"]}</span>'
+                '</div>'
+                '</div>'
+                '<div style="text-align:right; min-width:120px;">'
+                '<div class="score-label">Since starred</div>'
+                f'<div class="score-display {since_class}">{since_pct:+.1f}%</div>'
+                '</div>'
+                '</div>'
+                '</div>',
+                unsafe_allow_html=True)
 
             bcols = st.columns([1, 1, 6])
             if bcols[0].button("Details →", key=f"wd_{w['contract']}", use_container_width=True):
