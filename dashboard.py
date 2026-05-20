@@ -212,40 +212,6 @@ def render_coin_card(coin, analysis, rank: int | None = None):
 
     rank_html = f'<span style="opacity:0.4; font-size:14px; margin-right:8px;">#{rank}</span>' if rank else ""
 
-    card_html = f"""
-    <div class="coin-card">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
-        <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="font-size:18px; font-weight:600;">{rank_html}{coin.symbol}</span>
-            <span style="opacity:0.6; font-size:14px;">{coin.name[:40]}</span>
-            <span class="chain-pill">{coin.chain}</span>
-          </div>
-          <div class="meta-row">
-            <span><strong>{fmt_price(coin.price_usd)}</strong></span>
-            <span class="{pc_class}">{fmt_pct(pc_24h)} 24h</span>
-            <span>MC {fmt_money(coin.market_cap_usd)}</span>
-            <span>Vol {fmt_money(coin.volume_24h_usd)}</span>
-            <span>Liq {fmt_money(coin.liquidity_usd)}</span>
-            <span>{coin.token_age_days:.0f}d old</span>
-          </div>
-          <div style="margin-top:10px;">
-            {tier_badge(opp["score"])}
-            {risk_badge(risk["score"])}
-          </div>
-        </div>
-        <div style="text-align:right; min-width:90px;">
-          <div class="score-label">Momentum</div>
-          <div class="score-display">{mom["total"]:.0f}</div>
-        </div>
-        <div style="text-align:right; min-width:90px;">
-          <div class="score-label">Opportunity</div>
-          <div class="score-display">{opp["score"]:.0f if opp["score"] is not None else '—'}</div>
-        </div>
-      </div>
-    </div>
-    """
-    # Note: the f-string trick {opp["score"]:.0f if ...} won't work — fix:
     opp_display = f'{opp["score"]:.0f}' if opp["score"] is not None else "—"
     opp_color = "color: #94a3b8;" if opp["score"] is None else ""
 
