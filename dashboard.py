@@ -51,142 +51,113 @@ st.set_page_config(
 )
 
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
     #MainMenu, footer, header {visibility: hidden;}
 
-    /* App background: lighter slate so content reads clearly */
-    .stApp {
-        background:
-            radial-gradient(1200px 600px at 20% -10%, rgba(99,102,241,0.10), transparent 60%),
-            radial-gradient(1000px 500px at 100% 0%, rgba(168,85,247,0.08), transparent 55%),
-            #12141c;
-        color: #e8edf4;
+    /* Clean solid dark surface — no gradients, no glows */
+    .stApp {background: #0f1117; color: #e6e9ef;}
+    .block-container {padding-top: 1.4rem; padding-bottom: 2rem; max-width: 1200px;}
+
+    /* Readable system font, no fancy display fonts */
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     }
-    .block-container {padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1320px;}
+    h1 {font-size: 26px; font-weight: 700; color: #fff;}
+    h2, h3 {color: #f3f5f9; font-weight: 600;}
 
-    /* Base text — bright enough to read comfortably */
-    .stApp, .stMarkdown, p, span, div, label {color: #e8edf4;}
+    /* Sidebar — clearly lighter than main so it's visible */
+    [data-testid="stSidebar"] {
+        background: #171a23;
+        border-right: 1px solid #262a35;
+    }
+    [data-testid="stSidebar"] * {color: #d8dce6;}
 
-    /* Typography */
-    html, body, [class*="css"] {font-family: 'Space Grotesk', system-ui, sans-serif;}
-    h1, h2, h3 {font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; color: #f8fafc;}
-    .mono {font-family: 'JetBrains Mono', monospace;}
-
-    /* Cards — lighter surface, clearer borders */
+    /* Cards — solid surface, clear border, simple */
     .coin-card {
         position: relative;
-        background: linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.025) 100%);
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 14px;
-        padding: 15px 18px;
-        margin-bottom: 9px;
-        transition: all 0.18s ease;
-        overflow: hidden;
+        background: #1a1d27;
+        border: 1px solid #2a2e3b;
+        border-left: 3px solid var(--accent, #2a2e3b);
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 8px;
     }
-    .coin-card::before {
-        content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-        background: var(--accent, transparent);
-        opacity: 0.9;
-    }
-    .coin-card:hover {
-        border-color: rgba(255,255,255,0.24);
-        transform: translateY(-1px);
-        background: linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.035) 100%);
-    }
-    .coin-rank {
-        font-family: 'JetBrains Mono', monospace;
-        opacity: 0.45; font-size: 13px; margin-right: 9px; font-weight: 500;
-    }
+    .coin-card:hover {background: #1e222e; border-color: #3a3f4f;}
+    .coin-rank {color: #6b7280; font-size: 13px; margin-right: 8px; font-weight: 600;}
 
-    /* Badges */
+    /* Badges — only two states: clear "good/safe" vs "caution/bad". Muted. */
     .badge {
-        display: inline-block; padding: 3px 9px; border-radius: 7px;
-        font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px;
-        text-transform: uppercase; margin-right: 5px;
-        font-family: 'JetBrains Mono', monospace;
+        display: inline-block; padding: 3px 9px; border-radius: 6px;
+        font-size: 11px; font-weight: 600; margin-right: 6px;
     }
-    .badge-green {background: rgba(34,197,94,0.14); color: #4ade80; border: 1px solid rgba(34,197,94,0.25);}
-    .badge-yellow {background: rgba(234,179,8,0.14); color: #facc15; border: 1px solid rgba(234,179,8,0.25);}
-    .badge-blue {background: rgba(59,130,246,0.14); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25);}
-    .badge-red {background: rgba(239,68,68,0.14); color: #f87171; border: 1px solid rgba(239,68,68,0.25);}
-    .badge-gray {background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2);}
-    .badge-purple {background: rgba(168,85,247,0.14); color: #c084fc; border: 1px solid rgba(168,85,247,0.25);}
+    .badge-good {background: #14331f; color: #5ed39a; border: 1px solid #1f5436;}
+    .badge-warn {background: #3a2e12; color: #e3b341; border: 1px solid #5c4a1d;}
+    .badge-bad  {background: #3a1a1a; color: #f08a8a; border: 1px solid #5c2626;}
+    .badge-neutral {background: #23262f; color: #aab1c0; border: 1px solid #333845;}
 
-    .score-display {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 28px; font-weight: 700; line-height: 1; color: #f8fafc;
-    }
-    .score-display-dim {color: #94a3b8;}
+    .score-display {font-size: 26px; font-weight: 700; line-height: 1; color: #fff;}
+    .score-display-dim {color: #6b7280;}
     .score-label {
-        font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px;
-        opacity: 0.65; margin-bottom: 3px; font-weight: 500;
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #8b92a3; margin-bottom: 3px; font-weight: 600;
     }
 
     .meta-row {
-        display: flex; gap: 13px; font-size: 12px; color: #cbd5e1;
-        margin-top: 7px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace;
+        display: flex; gap: 14px; font-size: 12.5px; color: #aab1c0;
+        margin-top: 6px; flex-wrap: wrap;
     }
-    .price-up {color: #4ade80;}
-    .price-down {color: #f87171;}
+    .meta-row strong {color: #fff;}
+    .price-up {color: #5ed39a; font-weight: 600;}
+    .price-down {color: #f08a8a; font-weight: 600;}
 
     .chain-pill {
         display: inline-block; padding: 2px 8px; border-radius: 5px;
-        font-size: 9.5px; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.4px;
-        background: rgba(153,69,255,0.16); color: #c084fc; margin-left: 6px;
-        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; font-weight: 600; text-transform: uppercase;
+        background: #23262f; color: #9ca3b5; margin-left: 6px;
+    }
+    .dex-pill {
+        display: inline-block; padding: 2px 8px; border-radius: 5px;
+        font-size: 10px; font-weight: 600;
+        background: #1f2937; color: #7dd3fc; margin-left: 4px;
     }
 
     /* Buy/sell pressure bar */
     .pressure-bar {
-        display: flex; height: 5px; border-radius: 3px; overflow: hidden;
-        margin-top: 9px; background: rgba(255,255,255,0.05);
+        display: flex; height: 6px; border-radius: 3px; overflow: hidden;
+        margin-top: 10px; background: #23262f;
     }
-    .pressure-buy {background: linear-gradient(90deg, #22c55e, #4ade80);}
-    .pressure-sell {background: linear-gradient(90deg, #f87171, #ef4444);}
+    .pressure-buy {background: #2ea96f;}
+    .pressure-sell {background: #d35858;}
     .pressure-labels {
-        display: flex; justify-content: space-between; font-size: 10px;
-        margin-top: 3px; font-family: 'JetBrains Mono', monospace; opacity: 0.65;
+        display: flex; justify-content: space-between; font-size: 11px;
+        margin-top: 4px; color: #8b92a3;
     }
 
     .status-dot {
         display: inline-block; width: 8px; height: 8px; border-radius: 50%;
         margin-right: 6px; vertical-align: middle;
     }
-    .status-on {background: #4ade80; box-shadow: 0 0 7px #4ade80;}
-    .status-off {background: #64748b;}
+    .status-on {background: #2ea96f;}
+    .status-off {background: #5b6170;}
 
     /* Metric tiles */
-    [data-testid="stMetricValue"] {
-        font-size: 21px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
-    }
-    [data-testid="stMetricLabel"] {opacity: 0.6;}
+    [data-testid="stMetricValue"] {font-size: 22px; font-weight: 700; color: #fff;}
+    [data-testid="stMetricLabel"] {color: #8b92a3;}
     [data-testid="stHorizontalBlock"] {gap: 0.5rem;}
 
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.07);}
+    /* Tabs — simple underline style */
+    .stTabs [data-baseweb="tab-list"] {gap: 4px; border-bottom: 1px solid #262a35;}
     .stTabs [data-baseweb="tab"] {
-        background: transparent; border-radius: 8px 8px 0 0;
-        padding: 8px 18px; font-weight: 500;
+        background: transparent; padding: 8px 16px; font-weight: 600; color: #8b92a3;
     }
-    .stTabs [aria-selected="true"] {
-        background: rgba(255,255,255,0.04);
-    }
+    .stTabs [aria-selected="true"] {color: #fff;}
 
-    /* Buttons: tighter, more refined */
+    /* Buttons */
     .stButton button {
-        border-radius: 8px; font-weight: 500; font-size: 13px;
-        border: 1px solid rgba(255,255,255,0.1);
-        transition: all 0.15s;
+        border-radius: 8px; font-weight: 600; font-size: 13px;
+        background: #23262f; color: #d8dce6; border: 1px solid #333845;
     }
-    .stButton button:hover {border-color: rgba(255,255,255,0.25);}
-
-    /* Section headers */
-    .section-head {
-        font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
-        margin: 4px 0 2px;
-    }
+    .stButton button:hover {background: #2a2e3b; border-color: #4a5160; color: #fff;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -247,18 +218,18 @@ def fmt_pct(p):
 
 
 def tier_badge(score):
-    if score is None: return '<span class="badge badge-red">RISK HIDDEN</span>'
-    if score >= 80: return '<span class="badge badge-green">🔥 HIGH SIGNAL</span>'
-    if score >= 60: return '<span class="badge badge-yellow">⚡ NOTABLE</span>'
-    if score >= 40: return '<span class="badge badge-blue">👀 WATCH</span>'
-    return '<span class="badge badge-gray">LOW</span>'
+    if score is None: return '<span class="badge badge-bad">RISK HIDDEN</span>'
+    if score >= 80: return '<span class="badge badge-good">HIGH SIGNAL</span>'
+    if score >= 60: return '<span class="badge badge-warn">NOTABLE</span>'
+    if score >= 40: return '<span class="badge badge-neutral">WATCH</span>'
+    return '<span class="badge badge-neutral">LOW</span>'
 
 
 def risk_badge(score):
-    if score <= 20: return f'<span class="badge badge-green">✓ RISK {score}</span>'
-    if score <= 50: return f'<span class="badge badge-yellow">⚠ RISK {score}</span>'
-    if score <= 80: return f'<span class="badge badge-red">🚩 RISK {score}</span>'
-    return f'<span class="badge badge-red">☠ RISK {score}</span>'
+    if score <= 20: return f'<span class="badge badge-good">SAFE · {score}</span>'
+    if score <= 50: return f'<span class="badge badge-warn">CAUTION · {score}</span>'
+    if score <= 80: return f'<span class="badge badge-bad">RISKY · {score}</span>'
+    return f'<span class="badge badge-bad">AVOID · {score}</span>'
 
 
 # ---------------------------------------------------------------------------
@@ -280,18 +251,21 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
 
     safe_name = (coin.name or "")[:40]
 
-    # Accent color from opportunity tier
+    # Accent: single subtle green for genuine opportunities, neutral otherwise.
+    # No rainbow — keeps the list calm and scannable.
     opp_score = opp["score"]
-    if opp_score is None:
-        accent = "#ef4444"
-    elif opp_score >= 80:
-        accent = "#22c55e"
-    elif opp_score >= 60:
-        accent = "#eab308"
-    elif opp_score >= 40:
-        accent = "#3b82f6"
+    if opp_score is not None and opp_score >= 60:
+        accent = "#2ea96f"   # notable+ : subtle green edge
     else:
-        accent = "#64748b"
+        accent = "#2a2e3b"   # everything else : neutral (blends with border)
+
+    # DEX pill — highlight PumpSwap since that's the user's focus
+    dex_id = getattr(coin, "dex_id", "")
+    dex_html = ""
+    if dex_id:
+        nice = {"pumpswap": "PumpSwap", "raydium": "Raydium", "meteora": "Meteora",
+                "orca": "Orca", "fluxbeam": "FluxBeam"}.get(dex_id, dex_id.title())
+        dex_html = f'<span class="dex-pill">{nice}</span>'
 
     # Buy/sell pressure bar (from real DexScreener txn data if present)
     buy_pressure = getattr(coin, "buy_pressure_1h", None)
@@ -307,9 +281,9 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
             f'<div class="pressure-sell" style="width:{sell_pct:.0f}%;"></div>'
             '</div>'
             '<div class="pressure-labels">'
-            f'<span style="color:#4ade80;">&#9650; {buys} buys</span>'
-            f'<span>{buy_pct:.0f}% buy pressure (1h)</span>'
-            f'<span style="color:#f87171;">{sells} sells &#9660;</span>'
+            f'<span style="color:#5ed39a;">{buys} buys</span>'
+            f'<span>{buy_pct:.0f}% buy pressure · 1h</span>'
+            f'<span style="color:#f08a8a;">{sells} sells</span>'
             '</div>'
         )
 
@@ -320,12 +294,13 @@ def render_coin_card(coin, analysis, rank=None, key_prefix=""):
         '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">'
         '<div style="flex:1; min-width:0;">'
         '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">'
-        f'<span style="font-size:17px; font-weight:600; color:#f1f5f9;">{rank_html}{watch_marker}{coin.symbol}</span>'
-        f'<span style="opacity:0.6; font-size:13px;">{safe_name}</span>'
+        f'<span style="font-size:17px; font-weight:700; color:#fff;">{rank_html}{watch_marker}{coin.symbol}</span>'
+        f'<span style="color:#8b92a3; font-size:13px;">{safe_name}</span>'
         f'<span class="chain-pill">{coin.chain}</span>'
+        f'{dex_html}'
         '</div>'
         '<div class="meta-row">'
-        f'<span style="color:#f1f5f9;"><strong>{fmt_price(coin.price_usd)}</strong></span>'
+        f'<span><strong>{fmt_price(coin.price_usd)}</strong></span>'
         f'<span class="{pc_class}">{fmt_pct(pc_24h)} 24h</span>'
         f'<span>MC {fmt_money(coin.market_cap_usd)}</span>'
         f'<span>Vol {fmt_money(coin.volume_24h_usd)}</span>'
@@ -616,6 +591,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("## ⚙️ Filters")
 
+    dex_filter = st.selectbox("DEX",
+        ["All DEXes", "PumpSwap only", "Raydium only", "Meteora only"],
+        help="PumpSwap is pump.fun's native DEX — where their tokens trade after bonding")
     sort_by = st.selectbox("Sort by",
         ["Opportunity", "Momentum", "Risk (low to high)", "Volume", "Price 24h"])
     show_high_risk = st.checkbox("Show high-risk coins", value=False,
@@ -734,10 +712,15 @@ with main_tab1:
     if not scored:
         st.error("Couldn't pull data. APIs may be rate-limited — try again in a minute.")
     else:
+        dex_map = {"PumpSwap only": "pumpswap", "Raydium only": "raydium",
+                   "Meteora only": "meteora"}
+        wanted_dex = dex_map.get(dex_filter)
+
         filtered = [
             (c, a) for c, a in scored
             if c.liquidity_usd >= min_liquidity
             and (show_high_risk or a["scam_risk"]["score"] < 60)
+            and (wanted_dex is None or getattr(c, "dex_id", "") == wanted_dex)
         ]
         sort_fns = {
             "Opportunity": lambda x: x[1]["opportunity"]["score"] if x[1]["opportunity"]["score"] is not None else -1,
@@ -821,8 +804,8 @@ with main_tab2:
                 f'<span>at {fmt_price(w["added_at_price"])}</span>'
                 '</div>'
                 '<div style="margin-top:8px;">'
-                f'<span class="badge badge-purple">Was: Mom {w["added_at_momentum"]:.0f} &middot; Opp {was_opp_str} &middot; Risk {w["added_at_risk"]}</span>'
-                f'<span class="badge badge-blue">Now: Mom {latest["momentum_score"]:.0f} &middot; Opp {now_opp_str} &middot; Risk {latest["scam_risk_score"]}</span>'
+                f'<span class="badge badge-neutral">Was: Mom {w["added_at_momentum"]:.0f} &middot; Opp {was_opp_str} &middot; Risk {w["added_at_risk"]}</span>'
+                f'<span class="badge badge-neutral">Now: Mom {latest["momentum_score"]:.0f} &middot; Opp {now_opp_str} &middot; Risk {latest["scam_risk_score"]}</span>'
                 '</div>'
                 '</div>'
                 '<div style="text-align:right; min-width:120px;">'

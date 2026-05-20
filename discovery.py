@@ -141,6 +141,7 @@ def pair_to_coindata(pair: dict) -> CoinData | None:
         cd.buy_pressure_1h = buy_pressure_1h
         cd.price_change_6h_pct = pc.get("h6") or 0
         cd.dex_url = pair.get("url") or ""
+        cd.dex_id = (pair.get("dexId") or "").lower()
         return cd
     except Exception:
         return None
@@ -191,11 +192,12 @@ def fetch_pair_for_token(chain: str, address: str) -> dict | None:
 def fetch_top_pairs_for_chain(chain: str, limit: int = 30) -> list[dict]:
     """Use the search endpoint with a chain filter to surface top-volume pairs."""
     try:
-        # Search by common quote tokens to find active pairs
+        # Search by common quote tokens to find active pairs.
+        # For Solana we also search "pump" to surface pump.fun / PumpSwap tokens.
         results = []
         seen_addrs = set()
         queries = {
-            "solana": ["SOL", "USDC"],
+            "solana": ["SOL", "USDC", "pump"],
             "ethereum": ["WETH", "USDC", "USDT"],
             "base": ["WETH", "USDC"],
             "bsc": ["WBNB", "BUSD"],
