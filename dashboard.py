@@ -54,23 +54,21 @@ st.markdown("""
 <style>
     #MainMenu, footer, header {visibility: hidden;}
 
-    /* Sidebar collapse/expand control — make it big and obvious so it can't
-       get lost. This is the arrow that reopens the sidebar after collapsing. */
-    [data-testid="stSidebarCollapsedControl"] {
-        background: #2ea96f !important;
-        border-radius: 8px !important;
-        padding: 6px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+    /* Force the sidebar to ALWAYS stay open — hide the collapse button so it
+       can't be closed, and pin the sidebar visible regardless of state. */
+    [data-testid="stSidebarCollapseButton"] {display: none !important;}
+    [data-testid="stSidebarCollapsedControl"] {display: none !important;}
+    [data-testid="stSidebar"] {
+        display: flex !important;
+        visibility: visible !important;
+        transform: none !important;
+        min-width: 300px !important;
+        width: 300px !important;
+        margin-left: 0 !important;
     }
-    [data-testid="stSidebarCollapsedControl"] button {
-        color: #fff !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] svg {
-        width: 26px !important; height: 26px !important; color: #fff !important;
-    }
-    /* Also style the collapse arrow inside the open sidebar */
-    [data-testid="stSidebarCollapseButton"] svg {
-        width: 22px !important; height: 22px !important;
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        transform: none !important;
+        margin-left: 0 !important;
     }
 
     /* Clean solid dark surface — no gradients, no glows */
@@ -720,7 +718,7 @@ if st.session_state.detail_address:
 st.markdown("# 📊 Crypto Intelligence")
 st.markdown(f"<p style='opacity:0.5; margin-top:-12px;'>Solana · Updated {datetime.now().strftime('%H:%M')}</p>",
            unsafe_allow_html=True)
-st.caption("⬅ Filters & search are in the sidebar. If it's hidden, click the green **›** arrow at the top-left to reopen it.")
+st.caption("Filters & search are in the sidebar on the left.")
 
 main_tab1, main_tab2, main_tab3 = st.tabs(["🎯 Discover", "⭐ Watchlist", "📐 Calibration"])
 
